@@ -98,6 +98,46 @@ For a quick smoke test before full training, run:
 TRAIN_SAMPLE_SIZE=5000 python train.py
 ```
 
+For the highest-accuracy synthetic benchmark, train category/subcategory against the dataset's hidden clean labels and use the tuned XGBoost profile:
+
+```bash
+TARGET_LABEL_SOURCE=clean XGB_PROFILE=tuned python train.py
+```
+
+To compare several model families before choosing the final model:
+
+```bash
+BENCHMARK_SAMPLE_SIZE=5000 python scripts/benchmark_models.py
+TARGET_LABEL_SOURCE=clean python scripts/benchmark_models.py
+```
+
+To run only the fast TF-IDF baselines:
+
+```bash
+BENCHMARK_MODE=tfidf python scripts/benchmark_models.py
+```
+
+To fine-tune a transformer in Colab, switch to a GPU runtime and train one target at a time:
+
+```bash
+TARGET=category TARGET_LABEL_SOURCE=clean EPOCHS=3 BATCH_SIZE=16 python scripts/fine_tune_transformer.py
+TARGET=subcategory TARGET_LABEL_SOURCE=clean EPOCHS=3 BATCH_SIZE=16 python scripts/fine_tune_transformer.py
+TARGET=priority EPOCHS=3 BATCH_SIZE=16 python scripts/fine_tune_transformer.py
+```
+
+Fine-tuning writes model files under:
+
+```text
+transformer_models/
+reports/finetune_metrics.csv
+```
+
+The benchmark writes:
+
+```text
+reports/model_benchmark.csv
+```
+
 This creates:
 
 ```text

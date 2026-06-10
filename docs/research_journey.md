@@ -131,6 +131,8 @@ Key fields:
 
 Training uses only `ticket_text` as the NLP input and the visible `category`, `subcategory`, and `priority` labels as targets. The hidden true-label columns exist only to audit synthetic label noise and should not be used for normal training, because that would create evaluation leakage.
 
+For experimentation, the training pipeline can also use the hidden clean category/subcategory labels as target labels with `TARGET_LABEL_SOURCE=clean`. This does not leak features into the model because the input is still only `ticket_text`; it simply changes the supervised target from intentionally noisy labels to the synthetic ground truth. This is useful for showing the gap between noisy-label performance and clean-label performance.
+
 ## 4. NLP Pipeline Research
 
 ### Data Cleaning Decision
@@ -211,6 +213,8 @@ Final ranking:
 3. Fine-tuned DistilBERT.
 4. Linear SVM + TF-IDF.
 5. LLM-based zero-shot routing.
+
+The repository includes `scripts/benchmark_models.py` to compare TF-IDF + Logistic Regression, TF-IDF + LinearSVC, MiniLM + Logistic Regression, and tuned MiniLM + XGBoost on the current dataset. The benchmark can be run against visible noisy labels or hidden clean synthetic labels.
 
 ## 8. Error Analysis
 

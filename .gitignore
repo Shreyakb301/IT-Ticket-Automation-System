@@ -4,6 +4,7 @@ __pycache__/
 .env
 models/*.joblib
 models/*.pkl
+transformer_models/
 reports/*.png
 reports/*.csv
 .DS_Store

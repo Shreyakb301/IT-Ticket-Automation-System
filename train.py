@@ -20,6 +20,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, f1_score, classification_report
+from sklearn.utils.class_weight import compute_sample_weight
 from xgboost import XGBClassifier
 from preprocessing import clean_text, normalize_label
 
@@ -30,21 +31,47 @@ REPORT_DIR = ROOT / "reports"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TARGETS = ["category", "subcategory", "priority"]
 TRAIN_SAMPLE_SIZE = os.getenv("TRAIN_SAMPLE_SIZE")
+TARGET_LABEL_SOURCE = os.getenv("TARGET_LABEL_SOURCE", "noisy").lower()
+XGB_PROFILE = os.getenv("XGB_PROFILE", "fast").lower()
+CLASS_BALANCE = os.getenv("CLASS_BALANCE", "0") == "1"
 
 
 def build_classifier(num_classes: int) -> XGBClassifier:
-    return XGBClassifier(
-        objective="multi:softprob",
-        num_class=num_classes,
-        n_estimators=250,
-        max_depth=5,
-        learning_rate=0.08,
-        subsample=0.9,
-        colsample_bytree=0.9,
-        eval_metric="mlogloss",
-        random_state=42,
-        n_jobs=-1,
-    )
+    params = {
+        "objective": "multi:softprob",
+        "num_class": num_classes,
+        "eval_metric": "mlogloss",
+        "random_state": 42,
+        "n_jobs": -1,
+    }
+    if XGB_PROFILE == "tuned":
+        params.update(
+            n_estimators=650,
+            max_depth=4,
+            learning_rate=0.035,
+            min_child_weight=2,
+            subsample=0.85,
+            colsample_bytree=0.85,
+            reg_alpha=0.05,
+            reg_lambda=2.0,
+        )
+    else:
+        params.update(
+            n_estimators=250,
+            max_depth=5,
+            learning_rate=0.08,
+            subsample=0.9,
+            colsample_bytree=0.9,
+        )
+    return XGBClassifier(**params)
+
+
+def select_target_series(df: pd.DataFrame, target: str) -> pd.Series:
+    if TARGET_LABEL_SOURCE == "clean" and target == "category" and "true_category_hidden" in df.columns:
+        return df["true_category_hidden"]
+    if TARGET_LABEL_SOURCE == "clean" and target == "subcategory" and "true_subcategory_hidden" in df.columns:
+        return df["true_subcategory_hidden"]
+    return df[target]
 
 
 def main() -> None:
@@ -62,7 +89,7 @@ def main() -> None:
     df = df[df["clean_text"].str.len() > 0].copy()
 
     for target in TARGETS:
-        df[target] = df[target].map(lambda value: normalize_label(value, target))
+        df[target] = select_target_series(df, target).map(lambda value: normalize_label(value, target))
 
     if TRAIN_SAMPLE_SIZE:
         sample_size = min(int(TRAIN_SAMPLE_SIZE), len(df))
@@ -70,7 +97,13 @@ def main() -> None:
 
     print(f"Loaded {len(df):,} tickets")
     if {"true_category_hidden", "true_subcategory_hidden"} & set(df.columns):
-        print("Detected hidden clean-label columns; training uses only ticket_text and visible target labels.")
+        print(f"Target label source: {TARGET_LABEL_SOURCE}")
+        if TARGET_LABEL_SOURCE == "clean":
+            print("Using hidden clean labels as targets for category/subcategory; ticket_text remains the only model input.")
+        else:
+            print("Detected hidden clean-label columns; training uses only ticket_text and visible target labels.")
+    print(f"XGBoost profile: {XGB_PROFILE}")
+    print(f"Class-balanced sample weights: {CLASS_BALANCE}")
     if "label_quality" in df.columns:
         print("Label quality distribution:")
         print(df["label_quality"].value_counts().to_string())
@@ -101,7 +134,8 @@ def main() -> None:
         )
 
         clf = build_classifier(num_classes=len(le.classes_))
-        clf.fit(X_train, y_train)
+        sample_weight = compute_sample_weight("balanced", y_train) if CLASS_BALANCE else None
+        clf.fit(X_train, y_train, sample_weight=sample_weight)
         pred = clf.predict(X_test)
 
         acc = accuracy_score(y_test, pred)
@@ -128,6 +162,9 @@ def main() -> None:
         "targets": TARGETS,
         "tickets": int(len(df)),
         "train_sample_size": int(len(df)) if TRAIN_SAMPLE_SIZE else None,
+        "target_label_source": TARGET_LABEL_SOURCE,
+        "xgb_profile": XGB_PROFILE,
+        "class_balance": CLASS_BALANCE,
         "preprocessing": "clean_text + target label normalization",
         "metrics": metrics,
     }
