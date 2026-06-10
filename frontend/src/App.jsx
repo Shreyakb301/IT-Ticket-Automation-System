@@ -79,7 +79,7 @@ function App() {
       </section>
 
       <section className="stats grid four">
-        <Metric icon={<Ticket />} label="Dataset" value={analytics ? analytics.total_tickets.toLocaleString() : '50,000'} />
+        <Metric icon={<Ticket />} label="Dataset" value={analytics ? analytics.total_tickets.toLocaleString() : '20,000'} />
         <Metric icon={<Activity />} label="Targets" value="3" />
         <Metric icon={<CheckCircle2 />} label="Embedding Size" value="384" />
         <Metric icon={<Brain />} label="Model" value="MiniLM + XGB" />

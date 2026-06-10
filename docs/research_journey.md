@@ -108,27 +108,28 @@ For this project, a synthetic dataset is acceptable because the goal is a portfo
 
 ### Current Dataset
 
-The project now uses `data/tickets.csv`, a 50,000-row uncleaned synthetic IT helpdesk dataset.
+The project now uses `data/tickets.csv`, a 20,000-row noisy/random synthetic IT helpdesk dataset. This version is intentionally harder than a simple keyword-generated dataset because category keywords are less direct, tickets can mention multiple issue types, and some labels are intentionally noisy.
 
 Key fields:
 
 - `ticket_id`
-- `created_date`
-- `closed_date`
+- `created_at`
 - `ticket_text`
 - `category`
 - `subcategory`
+- `true_category_hidden`
+- `true_subcategory_hidden`
 - `priority`
 - `department`
-- `location`
-- `assigned_team`
+- `user_role`
+- `channel`
 - `status`
+- `impact`
 - `response_time_hours`
 - `resolution_time_hours`
-- `channel`
-- `requester_role`
+- `label_quality`
 
-Training drops rows missing the required target fields and normalizes inconsistent labels before fitting models.
+Training uses only `ticket_text` as the NLP input and the visible `category`, `subcategory`, and `priority` labels as targets. The hidden true-label columns exist only to audit synthetic label noise and should not be used for normal training, because that would create evaluation leakage.
 
 ## 4. NLP Pipeline Research
 
@@ -399,7 +400,7 @@ It provides the best balance for this project:
 | Large enterprise | Fine-tuned transformer plus rules, audit logs, feedback loop, and human review. |
 | Startup | MiniLM embeddings plus XGBoost or Logistic Regression, deployed as a simple API. |
 | College student | MiniLM embeddings plus XGBoost with clear metrics and dashboard. |
-| This portfolio project | MiniLM + XGBoost + FastAPI + React + 50k messy synthetic dataset. |
+| This portfolio project | MiniLM + XGBoost + FastAPI + React + 20k noisy synthetic dataset. |
 
 ### Final Tech Stack
 

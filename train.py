@@ -69,6 +69,11 @@ def main() -> None:
         df = df.sample(sample_size, random_state=42).copy()
 
     print(f"Loaded {len(df):,} tickets")
+    if {"true_category_hidden", "true_subcategory_hidden"} & set(df.columns):
+        print("Detected hidden clean-label columns; training uses only ticket_text and visible target labels.")
+    if "label_quality" in df.columns:
+        print("Label quality distribution:")
+        print(df["label_quality"].value_counts().to_string())
     print("Target classes:")
     for target in TARGETS:
         print(f"- {target}: {df[target].nunique()} classes")

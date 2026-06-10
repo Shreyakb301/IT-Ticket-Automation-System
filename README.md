@@ -68,19 +68,23 @@ python scripts/inspect_data.py
 Dataset columns include:
 
 - `ticket_id`
-- `created_date`
-- `closed_date`
+- `created_at`
 - `department`
-- `requester_role`
+- `user_role`
+- `channel`
 - `category`
 - `subcategory`
+- `true_category_hidden`
+- `true_subcategory_hidden`
 - `priority`
 - `ticket_text`
-- `assigned_team`
+- `status`
+- `impact`
 - `response_time_hours`
 - `resolution_time_hours`
+- `label_quality`
 
-The dataset is intentionally uncleaned and includes mixed casing, abbreviations, missing values, noisy text, and inconsistent labels. Training drops rows missing `ticket_text`, `category`, `subcategory`, or `priority`, then normalizes target labels before fitting the models.
+The dataset is intentionally noisy and randomly generated. It includes overlapping issue descriptions, misleading urgency words, typos, vague text, and intentionally noisy category/subcategory labels. The `true_category_hidden` and `true_subcategory_hidden` fields are included only for evaluation and leakage checks; the training code ignores them and trains from `ticket_text` to the visible `category`, `subcategory`, and `priority` labels.
 
 ## 3. Train Models
 
@@ -185,7 +189,7 @@ http://localhost:5173
 **IT Ticket Automated Classification System**
 
 - Built an NLP-based ticket triage system that predicts category, subcategory, and priority for IT helpdesk incidents using Sentence Transformers and XGBoost.
-- Trained multi-class classification models on 50,000 messy synthetic enterprise support tickets with realistic departments, urgency levels, resolution metadata, routing teams, missing values, and noisy text.
+- Trained multi-class classification models on 20,000 noisy synthetic enterprise support tickets with overlapping issue descriptions, intentionally noisy labels, urgency metadata, and service desk workflow fields.
 - Developed a FastAPI inference service and React dashboard for real-time ticket prediction, confidence scoring, and support analytics.
 - Created an end-to-end ML pipeline covering data preprocessing, semantic embeddings, model training, evaluation, API deployment, and frontend visualization.
 
