@@ -3,14 +3,11 @@ import sys
 import joblib
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from preprocessing import clean_text
 
 ROOT = Path(__file__).resolve().parent
 MODEL_DIR = ROOT / "models"
 TARGETS = ["category", "subcategory", "priority"]
-
-
-def clean_text(text: str) -> str:
-    return " ".join(str(text).lower().strip().split())
 
 
 def load_artifacts():

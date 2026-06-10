@@ -11,6 +11,7 @@ Outputs:
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import json
 import joblib
 import numpy as np
@@ -20,6 +21,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, f1_score, classification_report
 from xgboost import XGBClassifier
+from preprocessing import clean_text, normalize_label
 
 ROOT = Path(__file__).resolve().parent
 DATA_PATH = ROOT / "data" / "tickets.csv"
@@ -27,10 +29,7 @@ MODEL_DIR = ROOT / "models"
 REPORT_DIR = ROOT / "reports"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TARGETS = ["category", "subcategory", "priority"]
-
-
-def clean_text(text: str) -> str:
-    return " ".join(str(text).lower().strip().split())
+TRAIN_SAMPLE_SIZE = os.getenv("TRAIN_SAMPLE_SIZE")
 
 
 def build_classifier(num_classes: int) -> XGBClassifier:
@@ -60,8 +59,19 @@ def main() -> None:
 
     df = df.dropna(subset=required).copy()
     df["clean_text"] = df["ticket_text"].map(clean_text)
+    df = df[df["clean_text"].str.len() > 0].copy()
+
+    for target in TARGETS:
+        df[target] = df[target].map(lambda value: normalize_label(value, target))
+
+    if TRAIN_SAMPLE_SIZE:
+        sample_size = min(int(TRAIN_SAMPLE_SIZE), len(df))
+        df = df.sample(sample_size, random_state=42).copy()
 
     print(f"Loaded {len(df):,} tickets")
+    print("Target classes:")
+    for target in TARGETS:
+        print(f"- {target}: {df[target].nunique()} classes")
     print(f"Encoding tickets with {EMBEDDING_MODEL}...")
     embedder = SentenceTransformer(EMBEDDING_MODEL)
     X = embedder.encode(
@@ -112,6 +122,8 @@ def main() -> None:
         "embedding_model": EMBEDDING_MODEL,
         "targets": TARGETS,
         "tickets": int(len(df)),
+        "train_sample_size": int(len(df)) if TRAIN_SAMPLE_SIZE else None,
+        "preprocessing": "clean_text + target label normalization",
         "metrics": metrics,
     }
     (REPORT_DIR / "training_summary.json").write_text(json.dumps(summary, indent=2))

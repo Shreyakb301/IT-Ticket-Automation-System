@@ -2,11 +2,11 @@
 
 A resume-ready NLP project that classifies enterprise IT helpdesk tickets into:
 
-- **Category** — Network, Software, Hardware, Security, Access, etc.
-- **Subcategory** — VPN, Outlook, Laptop, MFA, SAP, etc.
+- **Category** — Network, Software, Hardware, Security, Access, Database, Printer, Mobile Device, etc.
+- **Subcategory** — VPN, Outlook, Laptop, MFA, PostgreSQL, Printer Queue, iPhone, etc.
 - **Priority** — Low, Medium, High, Critical
 
-The system uses **Sentence Transformers (`all-MiniLM-L6-v2`)** to convert ticket text into semantic embeddings and **XGBoost** classifiers for prediction. It includes a FastAPI backend and a React dashboard.
+The system uses **Sentence Transformers (`all-MiniLM-L6-v2`)** to convert cleaned ticket text into semantic embeddings and **XGBoost** classifiers for prediction. It includes a FastAPI backend and a React dashboard.
 
 ## Project Architecture
 
@@ -14,6 +14,8 @@ The system uses **Sentence Transformers (`all-MiniLM-L6-v2`)** to convert ticket
 Ticket Text
    ↓
 Text Cleaning
+   ↓
+Label Normalization
    ↓
 Sentence Transformer Embedding, 384 dimensions
    ↓
@@ -49,6 +51,14 @@ source .venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
 ```
 
+## Research Journey
+
+For the full problem analysis, literature review, model comparison, architecture, business impact, and final recommendation, see:
+
+```text
+docs/research_journey.md
+```
+
 ## 2. Inspect Dataset
 
 ```bash
@@ -58,20 +68,30 @@ python scripts/inspect_data.py
 Dataset columns include:
 
 - `ticket_id`
-- `created_at`
+- `created_date`
+- `closed_date`
 - `department`
-- `user_role`
+- `requester_role`
 - `category`
 - `subcategory`
 - `priority`
 - `ticket_text`
 - `assigned_team`
-- `resolution_hours`
+- `response_time_hours`
+- `resolution_time_hours`
+
+The dataset is intentionally uncleaned and includes mixed casing, abbreviations, missing values, noisy text, and inconsistent labels. Training drops rows missing `ticket_text`, `category`, `subcategory`, or `priority`, then normalizes target labels before fitting the models.
 
 ## 3. Train Models
 
 ```bash
 python train.py
+```
+
+For a quick smoke test before full training, run:
+
+```bash
+TRAIN_SAMPLE_SIZE=5000 python train.py
 ```
 
 This creates:
@@ -165,7 +185,7 @@ http://localhost:5173
 **IT Ticket Automated Classification System**
 
 - Built an NLP-based ticket triage system that predicts category, subcategory, and priority for IT helpdesk incidents using Sentence Transformers and XGBoost.
-- Trained multi-class classification models on 10,000 synthetic enterprise support tickets with realistic departments, urgency levels, resolution metadata, and routing teams.
+- Trained multi-class classification models on 50,000 messy synthetic enterprise support tickets with realistic departments, urgency levels, resolution metadata, routing teams, missing values, and noisy text.
 - Developed a FastAPI inference service and React dashboard for real-time ticket prediction, confidence scoring, and support analytics.
 - Created an end-to-end ML pipeline covering data preprocessing, semantic embeddings, model training, evaluation, API deployment, and frontend visualization.
 

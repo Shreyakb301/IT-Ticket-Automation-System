@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
+from preprocessing import clean_text, normalize_label
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIR = ROOT / "models"
@@ -34,10 +35,6 @@ class PredictionResponse(BaseModel):
     priority_confidence: float
 
 _artifacts = {}
-
-
-def clean_text(text: str) -> str:
-    return " ".join(str(text).lower().strip().split())
 
 
 def load_artifacts():
@@ -73,10 +70,19 @@ def predict_ticket(payload: TicketRequest):
 @app.get("/analytics")
 def analytics():
     df = pd.read_csv(DATA_PATH)
+    category = df["category"].dropna().map(lambda value: normalize_label(value, "category"))
+    priority = df["priority"].dropna().map(lambda value: normalize_label(value, "priority"))
+    resolution_col = "resolution_time_hours" if "resolution_time_hours" in df.columns else "resolution_hours"
+    resolution = pd.to_numeric(df.get(resolution_col), errors="coerce")
+    department_counts = (
+        df["department"].fillna("Unknown").astype(str).str.strip().replace("", "Unknown").value_counts().head(10).to_dict()
+        if "department" in df.columns
+        else {}
+    )
     return {
         "total_tickets": int(len(df)),
-        "category_counts": df["category"].value_counts().to_dict(),
-        "priority_counts": df["priority"].value_counts().to_dict(),
-        "department_counts": df["department"].value_counts().head(10).to_dict(),
-        "avg_resolution_hours": round(float(df["resolution_hours"].dropna().mean()), 2),
+        "category_counts": category.value_counts().to_dict(),
+        "priority_counts": priority.value_counts().to_dict(),
+        "department_counts": department_counts,
+        "avg_resolution_hours": round(float(resolution.dropna().mean()), 2) if resolution.notna().any() else None,
     }
