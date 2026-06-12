@@ -59,6 +59,12 @@ For the full problem analysis, literature review, model comparison, architecture
 docs/research_journey.md
 ```
 
+For a portfolio-ready case study, demo script, architecture summary, and resume bullet, see:
+
+```text
+docs/portfolio_case_study.md
+```
+
 ## 2. Inspect Dataset
 
 ```bash
@@ -243,6 +249,24 @@ Open:
 
 ```text
 http://localhost:5173
+```
+
+## Dashboard
+
+The project includes a React dashboard with:
+
+- Real-time ticket text input.
+- Category, subcategory, and priority predictions.
+- Confidence scores for every prediction.
+- Auto-route vs human-review routing decision.
+- Dataset analytics and distribution charts.
+
+The API marks low-confidence predictions for review:
+
+```text
+category_confidence >= 0.70 -> auto-route
+category_confidence < 0.70  -> human review
+subcategory_confidence < 0.50 -> suggestion only
 ```
 
 ## Resume Bullets

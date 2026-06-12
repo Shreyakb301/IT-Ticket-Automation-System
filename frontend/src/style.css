@@ -18,6 +18,13 @@ button { margin-top: 16px; border: 0; border-radius: 999px; padding: 13px 20px; 
 button:disabled { opacity: .65; cursor: not-allowed; }
 .error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 14px; }
 .predictionGrid { display: grid; gap: 14px; }
+.decision { border: 1px solid #e2e8f0; border-radius: 18px; padding: 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; margin-bottom: 14px; }
+.decision.auto { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.decision.review { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.decisionIcon { width: 38px; height: 38px; border-radius: 999px; display: grid; place-items: center; background: rgba(255, 255, 255, .7); }
+.decision span { display: block; font-size: 11px; font-weight: 800; letter-spacing: .12em; margin-bottom: 4px; }
+.decision strong { display: block; font-size: 18px; }
+.decision small { display: block; color: inherit; opacity: .78; margin-top: 4px; line-height: 1.4; }
 .resultBox { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 18px; padding: 16px; display: grid; gap: 6px; }
 .resultBox span, .metric span { color: #64748b; font-size: 13px; font-weight: 700; }
 .resultBox strong { font-size: 26px; }

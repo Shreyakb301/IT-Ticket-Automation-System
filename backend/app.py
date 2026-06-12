@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIR = ROOT / "models"
 DATA_PATH = ROOT / "data" / "tickets.csv"
 TARGETS = ["category", "subcategory", "priority"]
+CATEGORY_AUTO_ROUTE_THRESHOLD = 0.70
+SUBCATEGORY_SUGGESTION_THRESHOLD = 0.50
 
 app = FastAPI(title="IT Ticket Automated Classifier", version="1.0.0")
 app.add_middleware(
@@ -33,6 +35,10 @@ class PredictionResponse(BaseModel):
     category_confidence: float
     subcategory_confidence: float
     priority_confidence: float
+    auto_route: bool
+    needs_human_review: bool
+    routing_decision: str
+    review_reason: str | None = None
 
 _artifacts = {}
 
@@ -63,6 +69,23 @@ def predict_ticket(payload: TicketRequest):
             idx = int(np.argmax(proba))
             response[target] = artifacts["encoders"][target].inverse_transform([idx])[0]
             response[f"{target}_confidence"] = round(float(proba[idx]), 4)
+        response["auto_route"] = response["category_confidence"] >= CATEGORY_AUTO_ROUTE_THRESHOLD
+        response["needs_human_review"] = not response["auto_route"]
+        if response["auto_route"]:
+            response["routing_decision"] = f"Auto-route to {response['category']}"
+            response["review_reason"] = None
+        else:
+            response["routing_decision"] = "Human review required"
+            response["review_reason"] = (
+                f"Category confidence is below {CATEGORY_AUTO_ROUTE_THRESHOLD:.0%}; "
+                "route to triage queue before assignment."
+            )
+        if response["subcategory_confidence"] < SUBCATEGORY_SUGGESTION_THRESHOLD:
+            response["review_reason"] = (
+                (response["review_reason"] + " " if response["review_reason"] else "")
+                + f"Subcategory confidence is below {SUBCATEGORY_SUGGESTION_THRESHOLD:.0%}; "
+                "treat subcategory as a suggestion."
+            )
         return response
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

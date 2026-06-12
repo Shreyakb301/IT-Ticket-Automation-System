@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Brain, Ticket, Activity, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Brain, CheckCircle2, Route, ShieldCheck, Ticket, Activity } from 'lucide-react';
 import './style.css';
 
 const API = 'http://localhost:8000';
@@ -51,7 +51,7 @@ function App() {
         <div>
           <p className="eyebrow">NLP CLASSIFICATION SYSTEM</p>
           <h1>IT Ticket Automated Classifier</h1>
-          <p className="subtitle">Classifies support tickets by category, subcategory, and priority using Sentence Transformers + XGBoost.</p>
+          <p className="subtitle">Classifies support tickets by category, subcategory, and priority with benchmarked NLP models, confidence scores, and human-review routing.</p>
         </div>
         <div className="heroIcon"><Brain size={42} /></div>
       </section>
@@ -69,11 +69,14 @@ function App() {
           <p className="eyebrow">MODEL OUTPUT</p>
           <h2>Prediction</h2>
           {!prediction ? <p className="muted">Run a prediction to see classification results.</p> : (
-            <div className="predictionGrid">
-              <Result label="Category" value={prediction.category} confidence={prediction.category_confidence} />
-              <Result label="Subcategory" value={prediction.subcategory} confidence={prediction.subcategory_confidence} />
-              <Result label="Priority" value={prediction.priority} confidence={prediction.priority_confidence} />
-            </div>
+            <>
+              <RoutingDecision prediction={prediction} />
+              <div className="predictionGrid">
+                <Result label="Category" value={prediction.category} confidence={prediction.category_confidence} />
+                <Result label="Subcategory" value={prediction.subcategory} confidence={prediction.subcategory_confidence} />
+                <Result label="Priority" value={prediction.priority} confidence={prediction.priority_confidence} />
+              </div>
+            </>
           )}
         </div>
       </section>
@@ -81,8 +84,8 @@ function App() {
       <section className="stats grid four">
         <Metric icon={<Ticket />} label="Dataset" value={analytics ? analytics.total_tickets.toLocaleString() : '20,000'} />
         <Metric icon={<Activity />} label="Targets" value="3" />
-        <Metric icon={<CheckCircle2 />} label="Embedding Size" value="384" />
-        <Metric icon={<Brain />} label="Model" value="MiniLM + XGB" />
+        <Metric icon={<CheckCircle2 />} label="Best Accuracy" value="81.35%" />
+        <Metric icon={<Brain />} label="Best Model" value="DistilBERT" />
       </section>
 
       <section className="grid two">
@@ -107,6 +110,21 @@ function App() {
 
 function Result({ label, value, confidence }) {
   return <div className="resultBox"><span>{label}</span><strong>{value}</strong><small>Confidence {asPercent(confidence)}</small></div>;
+}
+
+function RoutingDecision({ prediction }) {
+  const isAuto = Boolean(prediction.auto_route);
+  return (
+    <div className={`decision ${isAuto ? 'auto' : 'review'}`}>
+      <div className="decisionIcon">{isAuto ? <ShieldCheck size={22} /> : <AlertTriangle size={22} />}</div>
+      <div>
+        <span>{isAuto ? 'AUTO-ROUTE' : 'TRIAGE REVIEW'}</span>
+        <strong>{prediction.routing_decision || (isAuto ? 'Auto-route' : 'Human review required')}</strong>
+        {prediction.review_reason && <small>{prediction.review_reason}</small>}
+      </div>
+      <Route size={18} />
+    </div>
+  );
 }
 
 function Metric({ icon, label, value }) {
