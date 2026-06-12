@@ -138,6 +138,27 @@ The benchmark writes:
 reports/model_benchmark.csv
 ```
 
+## Final Experiment Results
+
+Best observed results on the 20,000-row noisy/random synthetic dataset:
+
+| Target | Best model | Label source | Accuracy | Macro F1 | Weighted F1 |
+| --- | --- | --- | ---: | ---: | ---: |
+| Category | Fine-tuned DistilBERT | Clean synthetic target | 0.8135 | 0.8319 | 0.8245 |
+| Subcategory | Fine-tuned DistilBERT | Clean synthetic target | 0.7682 | 0.8013 | 0.7977 |
+| Priority | Fine-tuned DistilBERT | Visible noisy target | 0.4470 | 0.2310 | 0.3401 |
+
+Model comparison highlights:
+
+| Model | Category accuracy | Subcategory accuracy | Priority accuracy |
+| --- | ---: | ---: | ---: |
+| TF-IDF + LinearSVC, noisy labels | 0.6897 | 0.5400 | 0.3157 |
+| TF-IDF + LinearSVC, clean category/subcategory labels | 0.7987 | 0.7490 | 0.3157 |
+| MiniLM + tuned XGBoost, clean category/subcategory labels | 0.6660 | 0.6308 | 0.4173 |
+| Fine-tuned DistilBERT | 0.8135 | 0.7682 | 0.4470 |
+
+The final recommendation is to use fine-tuned DistilBERT for category and subcategory prediction. Priority prediction remains experimental because the ticket text alone does not contain enough reliable urgency signal; in production, priority should combine model output with metadata such as impact, requester role, affected users, SLA, and service criticality.
+
 This creates:
 
 ```text
@@ -228,11 +249,12 @@ http://localhost:5173
 
 **IT Ticket Automated Classification System**
 
-- Built an NLP-based ticket triage system that predicts category, subcategory, and priority for IT helpdesk incidents using Sentence Transformers and XGBoost.
+- Built an NLP-based ticket triage system that predicts category, subcategory, and priority for IT helpdesk incidents using TF-IDF baselines, Sentence Transformers, XGBoost, and fine-tuned DistilBERT.
 - Trained multi-class classification models on 20,000 noisy synthetic enterprise support tickets with overlapping issue descriptions, intentionally noisy labels, urgency metadata, and service desk workflow fields.
+- Improved category accuracy to 81.35% and subcategory accuracy to 76.82% with DistilBERT fine-tuning after benchmarking TF-IDF, MiniLM embeddings, and tuned XGBoost.
 - Developed a FastAPI inference service and React dashboard for real-time ticket prediction, confidence scoring, and support analytics.
 - Created an end-to-end ML pipeline covering data preprocessing, semantic embeddings, model training, evaluation, API deployment, and frontend visualization.
 
 ## Suggested GitHub Description
 
-> NLP-powered IT helpdesk ticket classifier using Sentence Transformers, XGBoost, FastAPI, and React for automated ticket triage and priority prediction.
+> NLP-powered IT helpdesk ticket classifier using TF-IDF baselines, Sentence Transformers, XGBoost, DistilBERT fine-tuning, FastAPI, and React for automated ticket triage.

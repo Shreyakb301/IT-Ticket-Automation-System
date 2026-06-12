@@ -192,7 +192,15 @@ CNNs, RNNs, LSTMs, Bi-LSTMs, and GRUs can classify text, but they are no longer 
 
 ## 7. Benchmarking Decision Matrix
 
-These are expected relative rankings for this project type. Actual values should be recorded in `reports/metrics.csv` after running `python train.py`.
+The table below summarizes the final observed results from the Colab experiments. Category and subcategory were evaluated both against visible noisy labels and hidden clean synthetic targets. The clean-target experiment is useful because the dataset intentionally injects wrong category/subcategory labels.
+
+| Target | Best model | Label source | Accuracy | Macro F1 | Weighted F1 |
+| --- | --- | --- | ---: | ---: | ---: |
+| Category | Fine-tuned DistilBERT | Clean synthetic target | 0.8135 | 0.8319 | 0.8245 |
+| Subcategory | Fine-tuned DistilBERT | Clean synthetic target | 0.7682 | 0.8013 | 0.7977 |
+| Priority | Fine-tuned DistilBERT | Visible noisy target | 0.4470 | 0.2310 | 0.3401 |
+
+Baseline comparison:
 
 | Model | Accuracy | F1 | Speed | Memory | Complexity | Production Readiness |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -206,12 +214,12 @@ These are expected relative rankings for this project type. Actual values should
 | Fine-tuned RoBERTa/DeBERTa | Very high | Very high | Slow | High | High | Medium-high |
 | LLM zero-shot | Variable | Variable | Slow | External/API cost | Medium-high | Medium |
 
-Final ranking:
+Final ranking from the experiments:
 
-1. XGBoost + MiniLM sentence embeddings.
-2. Logistic Regression + TF-IDF.
-3. Fine-tuned DistilBERT.
-4. Linear SVM + TF-IDF.
+1. Fine-tuned DistilBERT for category and subcategory.
+2. TF-IDF + LinearSVC as the strongest lightweight baseline.
+3. MiniLM embeddings + tuned XGBoost.
+4. Logistic Regression + TF-IDF.
 5. LLM-based zero-shot routing.
 
 The repository includes `scripts/benchmark_models.py` to compare TF-IDF + Logistic Regression, TF-IDF + LinearSVC, MiniLM + Logistic Regression, and tuned MiniLM + XGBoost on the current dataset. The benchmark can be run against visible noisy labels or hidden clean synthetic labels.
@@ -374,27 +382,29 @@ Not first priority:
 
 ### Winning Solution
 
-Use **Sentence Transformers MiniLM embeddings + XGBoost classifiers + FastAPI + React**.
+Use **fine-tuned DistilBERT for category/subcategory classification**, retain **TF-IDF + LinearSVC as a strong lightweight baseline**, and keep the **FastAPI + React dashboard architecture**.
 
 ### Why It Wins
 
-It provides the best balance for this project:
+It provides the best measured performance for this project:
 
-- Strong semantic understanding without full transformer fine-tuning.
-- Fast enough for real-time API inference.
+- Category accuracy reached 0.8135 with weighted F1 of 0.8245.
+- Subcategory accuracy reached 0.7682 with weighted F1 of 0.7977.
 - Works well with messy short text.
-- Easier to train than BERT/RoBERTa fine-tuning.
-- More impressive than a plain TF-IDF tutorial.
-- Practical for Colab training and GitHub portfolio review.
+- Demonstrates a serious model comparison workflow instead of a single tutorial model.
+- Still remains practical because DistilBERT fine-tuning completed in Colab GPU.
+
+Priority prediction remains a weak target. The best observed priority accuracy was 0.4470 with low macro F1, which means ticket text alone does not reliably encode urgency. A real deployment should combine priority prediction with metadata such as impact, requester role, affected users, SLA rules, and service criticality.
 
 ### Why Other Models Were Rejected
 
 - Naive Bayes: too simple for a resume-grade project.
-- Logistic Regression + TF-IDF: strong baseline, but less modern and less semantic.
-- SVM: good accuracy, but less convenient confidence handling.
+- Logistic Regression + TF-IDF: strong baseline, but weaker than LinearSVC and fine-tuned DistilBERT.
+- LinearSVC + TF-IDF: strong lightweight baseline, but slightly behind DistilBERT on category/subcategory.
 - Random Forest: not a good fit for sparse text.
 - LSTM/GRU/CNN: unnecessary complexity for weaker practical payoff.
-- Fine-tuned BERT/RoBERTa/DeBERTa: strong but heavier and harder to deploy.
+- MiniLM + XGBoost: useful and deployable, but underperformed TF-IDF and DistilBERT on this dataset.
+- Larger BERT/RoBERTa/DeBERTa: likely stronger but heavier than needed for the current portfolio scope.
 - LLM-only classification: costly, slower, and less deterministic.
 
 ### What Different Teams Would Deploy
@@ -403,8 +413,8 @@ It provides the best balance for this project:
 | --- | --- |
 | Large enterprise | Fine-tuned transformer plus rules, audit logs, feedback loop, and human review. |
 | Startup | MiniLM embeddings plus XGBoost or Logistic Regression, deployed as a simple API. |
-| College student | MiniLM embeddings plus XGBoost with clear metrics and dashboard. |
-| This portfolio project | MiniLM + XGBoost + FastAPI + React + 20k noisy synthetic dataset. |
+| College student | Fine-tuned DistilBERT plus TF-IDF baseline comparison and a dashboard. |
+| This portfolio project | DistilBERT fine-tuning + TF-IDF/LinearSVC benchmark + FastAPI + React + 20k noisy synthetic dataset. |
 
 ### Final Tech Stack
 
@@ -412,6 +422,7 @@ It provides the best balance for this project:
 - pandas
 - scikit-learn
 - Sentence Transformers
+- Hugging Face Transformers
 - XGBoost
 - FastAPI
 - React
@@ -421,7 +432,7 @@ It provides the best balance for this project:
 
 ### Final Project Narrative
 
-This is not just a classifier. It is an applied ITSM automation system that takes noisy free-text support tickets, cleans them, normalizes messy labels, embeds ticket descriptions with a transformer model, predicts category/subcategory/priority with XGBoost, and exposes the result through an API and dashboard.
+This is not just a classifier. It is an applied ITSM automation system that takes noisy free-text support tickets, cleans them, normalizes messy labels, benchmarks multiple NLP modeling strategies, fine-tunes DistilBERT for the strongest category/subcategory performance, and exposes the workflow through an API and dashboard.
 
 That makes it suitable for:
 
