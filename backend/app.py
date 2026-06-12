@@ -1,19 +1,13 @@
 from pathlib import Path
-import joblib
-import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from sentence_transformers import SentenceTransformer
-from preprocessing import clean_text, normalize_label
+from pydantic import BaseModel, ConfigDict, Field
+from inference import load_artifacts as load_model_artifacts, predict_with_artifacts
+from preprocessing import normalize_label
 
 ROOT = Path(__file__).resolve().parents[1]
-MODEL_DIR = ROOT / "models"
 DATA_PATH = ROOT / "data" / "tickets.csv"
-TARGETS = ["category", "subcategory", "priority"]
-CATEGORY_AUTO_ROUTE_THRESHOLD = 0.70
-SUBCATEGORY_SUGGESTION_THRESHOLD = 0.50
 
 app = FastAPI(title="IT Ticket Automated Classifier", version="1.0.0")
 app.add_middleware(
@@ -28,6 +22,8 @@ class TicketRequest(BaseModel):
     ticket_text: str = Field(..., min_length=5, examples=["VPN disconnects every few minutes from home."])
 
 class PredictionResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     ticket_text: str
     category: str
     subcategory: str
@@ -39,6 +35,7 @@ class PredictionResponse(BaseModel):
     needs_human_review: bool
     routing_decision: str
     review_reason: str | None = None
+    model_type: str
 
 _artifacts = {}
 
@@ -46,12 +43,7 @@ _artifacts = {}
 def load_artifacts():
     if _artifacts:
         return _artifacts
-    if not (MODEL_DIR / "label_encoders.joblib").exists():
-        raise RuntimeError("Models not found. Run `python train.py` first.")
-    model_name = (MODEL_DIR / "embedding_model_name.txt").read_text().strip()
-    _artifacts["embedder"] = SentenceTransformer(model_name)
-    _artifacts["encoders"] = joblib.load(MODEL_DIR / "label_encoders.joblib")
-    _artifacts["models"] = {target: joblib.load(MODEL_DIR / f"{target}_model.joblib") for target in TARGETS}
+    _artifacts.update(load_model_artifacts(ROOT))
     return _artifacts
 
 @app.get("/health")
@@ -62,31 +54,7 @@ def health():
 def predict_ticket(payload: TicketRequest):
     try:
         artifacts = load_artifacts()
-        X = artifacts["embedder"].encode([clean_text(payload.ticket_text)], normalize_embeddings=True)
-        response = {"ticket_text": payload.ticket_text}
-        for target in TARGETS:
-            proba = artifacts["models"][target].predict_proba(X)[0]
-            idx = int(np.argmax(proba))
-            response[target] = artifacts["encoders"][target].inverse_transform([idx])[0]
-            response[f"{target}_confidence"] = round(float(proba[idx]), 4)
-        response["auto_route"] = response["category_confidence"] >= CATEGORY_AUTO_ROUTE_THRESHOLD
-        response["needs_human_review"] = not response["auto_route"]
-        if response["auto_route"]:
-            response["routing_decision"] = f"Auto-route to {response['category']}"
-            response["review_reason"] = None
-        else:
-            response["routing_decision"] = "Human review required"
-            response["review_reason"] = (
-                f"Category confidence is below {CATEGORY_AUTO_ROUTE_THRESHOLD:.0%}; "
-                "route to triage queue before assignment."
-            )
-        if response["subcategory_confidence"] < SUBCATEGORY_SUGGESTION_THRESHOLD:
-            response["review_reason"] = (
-                (response["review_reason"] + " " if response["review_reason"] else "")
-                + f"Subcategory confidence is below {SUBCATEGORY_SUGGESTION_THRESHOLD:.0%}; "
-                "treat subcategory as a suggestion."
-            )
-        return response
+        return predict_with_artifacts(artifacts, payload.ticket_text)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
