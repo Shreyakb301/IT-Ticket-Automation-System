@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { AlertTriangle, Brain, CheckCircle2, PlayCircle, Route, ShieldCheck, Ticket } from 'lucide-react';
 import './style.css';
 
+const AnalyticsCharts = lazy(() => import('./AnalyticsCharts.jsx'));
 const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '');
 const SAMPLE_PROMPTS = [
   'My VPN disconnects every few minutes when I work from home.',
@@ -31,11 +31,12 @@ function App() {
   const [demoVisible, setDemoVisible] = useState(false);
 
   useEffect(() => {
+    if (!demoVisible || analytics) return;
     fetch(`${API}/analytics`)
       .then((res) => res.json())
       .then(setAnalytics)
       .catch(() => setAnalytics(null));
-  }, []);
+  }, [analytics, demoVisible]);
 
   async function classifyTicket() {
     setLoading(true);
@@ -70,9 +71,6 @@ function App() {
     }, 80);
   }
 
-  const categoryData = analytics ? Object.entries(analytics.category_counts).map(([name, value]) => ({ name, value })) : [];
-  const priorityData = analytics ? Object.entries(analytics.priority_counts).map(([name, value]) => ({ name, value })) : [];
-
   return (
     <main id="main-content" className="page">
       <section className="landing">
@@ -81,7 +79,7 @@ function App() {
           <h1>IT Ticket Routing Automation</h1>
           <p className="subtitle">Reads incoming Helpdesk tickets and recommends the right IT support group, issue type, and priority with benchmarked NLP models, confidence scores, and human-review routing.</p>
           <div className="landingActions">
-            <button onClick={showDemo}><PlayCircle size={18} /> View Demo</button>
+            <button onClick={showDemo} aria-label="View ticket routing demo"><PlayCircle size={18} /> View Demo</button>
           </div>
         </div>
         <div className="workflowPanel" aria-label="Routing workflow summary">
@@ -100,8 +98,8 @@ function App() {
           <label className="fieldLabel" htmlFor="ticketText">Ticket text</label>
           <textarea id="ticketText" value={ticketText} onChange={(e) => setTicketText(e.target.value)} />
           <div className="buttonRow">
-            <button onClick={classifyTicket} disabled={loading}>{loading ? 'Routing...' : 'Route Ticket'}</button>
-            <button className="secondaryButton" onClick={changePrompt} disabled={loading}>Change Prompt</button>
+            <button onClick={classifyTicket} disabled={loading} aria-label="Route ticket">{loading ? 'Routing...' : 'Route Ticket'}</button>
+            <button className="secondaryButton" onClick={changePrompt} disabled={loading} aria-label="Change sample ticket prompt">Change Prompt</button>
           </div>
           {error && <p className="error">{error}</p>}
         </div>
@@ -129,27 +127,9 @@ function App() {
         <Metric icon={<Brain />} label="Best Model" value="DistilBERT" />
       </section>
 
-      <section className="grid two">
-        <div className="card chartCard">
-          <p className="eyebrow">ANALYTICS</p>
-          <h2>Tickets by model category</h2>
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={categoryData} margin={{ top: 8, right: 12, bottom: 72, left: 0 }}>
-              <XAxis dataKey="name" interval={0} angle={-35} textAnchor="end" height={78} tick={{ fontSize: 12 }} />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="card chartCard">
-          <p className="eyebrow">ANALYTICS</p>
-          <h2>Priority distribution</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart><Pie data={priorityData} dataKey="value" nameKey="name" outerRadius={90} label>{priorityData.map((_, i) => <Cell key={i} />)}</Pie></PieChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
+      <Suspense fallback={<p className="muted">Loading analytics...</p>}>
+        <AnalyticsCharts analytics={analytics} />
+      </Suspense>
       </section>
     </main>
   );
