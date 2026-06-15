@@ -1,0 +1,457 @@
+IT Ticket Routing Automation System
+Simple Project Explanation
+
+1. What Problem Does This Project Solve?
+
+Companies get many IT support tickets every day.
+
+Examples:
+
+- "I cannot connect to WiFi."
+- "My Outlook keeps crashing."
+- "I forgot my password."
+- "The printer is not printing."
+- "I see a suspicious login alert."
+
+Usually, these tickets first go to the Helpdesk team.
+
+The Helpdesk team has to read each ticket and decide which IT group should handle it.
+
+For example:
+
+- WiFi problem -> Network Operations
+- Password reset -> Account Access and Identity
+- Laptop problem -> Endpoint Support
+- Suspicious login -> Security Operations
+
+Doing this manually is slow. It also creates mistakes because different people may route the same kind of ticket differently.
+
+This project uses Natural Language Processing, also called NLP, to read the ticket text and automatically recommend where the ticket should go.
+
+
+2. What Is NLP?
+
+NLP means Natural Language Processing.
+
+It is a type of artificial intelligence that helps computers understand human language.
+
+In this project, the computer reads a support ticket sentence and tries to understand what the issue is.
+
+For example:
+
+"VPN keeps disconnecting every few minutes."
+
+The model should understand that this is probably a network-related issue and route it to Network Operations.
+
+
+3. What Does The System Predict?
+
+For each ticket, the system predicts three main things:
+
+1. Support Group
+
+This is the IT team that should receive the ticket.
+
+Examples:
+
+- Account Access and Identity
+- Network Operations
+- Endpoint Support
+- Security Operations
+- Software and Business Apps
+- Storage and Collaboration
+- HR Systems Support
+- IT Procurement
+
+2. Issue Type
+
+This is the specific kind of problem.
+
+Examples:
+
+- VPN
+- MFA
+- Password Reset
+- Laptop
+- Network Printer
+- Suspicious Login
+- Shared Drive Access
+
+3. Priority
+
+This tells how urgent the ticket is.
+
+Examples:
+
+- Low
+- Medium
+- High
+- Critical
+
+
+4. What Is A Confidence Score?
+
+The model does not just give an answer. It also gives a confidence score.
+
+A confidence score means how sure the model is.
+
+Example:
+
+Support Group: Network Operations
+Confidence: 89%
+
+This means the model is fairly sure the ticket should go to Network Operations.
+
+If confidence is too low, the ticket should not be automatically routed. Instead, a human should review it.
+
+
+5. What Is Auto-Routing?
+
+Auto-routing means the system automatically sends the ticket to a support group.
+
+This project uses a rule:
+
+If support group confidence is at least 70%, the system can auto-route the ticket.
+
+If confidence is below 70%, the system says human review is needed.
+
+This makes the project safer because the model does not blindly route every ticket.
+
+
+6. What Data Was Used?
+
+The project uses a synthetic enterprise service desk dataset.
+
+Synthetic means the data is generated for practice or testing. It is not real private company data.
+
+This is important because real IT tickets can contain sensitive information like names, emails, employee IDs, system names, and security issues.
+
+The dataset has ticket text and labels such as:
+
+- category
+- subcategory
+- priority
+- department
+- channel
+- status
+- impact
+
+The dataset is intentionally noisy.
+
+Noisy means it includes realistic messiness, such as:
+
+- vague descriptions
+- typos
+- overlapping issues
+- unclear wording
+- imperfect labels
+
+This makes the project more realistic than a simple clean dataset.
+
+
+7. What Models Were Tried?
+
+The project compares multiple machine learning approaches.
+
+Simple baseline models:
+
+- TF-IDF
+- LinearSVC
+- Logistic Regression
+
+Embedding model:
+
+- SentenceTransformer MiniLM
+
+Tree-based classifier:
+
+- XGBoost
+
+Transformer model:
+
+- DistilBERT
+
+The stronger model was DistilBERT, but it uses more memory.
+
+For deployment on Render, the project uses the lighter XGBoost/SentenceTransformer version because it is easier to host on a small server.
+
+
+8. Why Not Use The Biggest Model On Render?
+
+The DistilBERT models are large.
+
+There are separate transformer models for:
+
+- category
+- subcategory
+- priority
+
+Loading all of them can use too much memory on a small Render instance.
+
+Render restarted the service because the app exceeded its memory limit.
+
+To fix this, the hosted version uses:
+
+MODEL_BACKEND=xgboost
+
+This tells the app to use the smaller model artifacts.
+
+This is a practical engineering decision:
+
+Use the best model for experiments, but use a lighter model for affordable deployment.
+
+
+9. What Is The Backend?
+
+The backend is the server part of the application.
+
+This project uses FastAPI for the backend.
+
+FastAPI is a Python framework used to create APIs.
+
+The backend has routes such as:
+
+/health
+
+This checks whether the server is running.
+
+/predict
+
+This accepts ticket text and returns predictions.
+
+/analytics
+
+This returns dataset statistics for charts.
+
+/docs
+
+This shows automatic API documentation from FastAPI.
+
+
+10. What Is The Frontend?
+
+The frontend is the part the user sees in the browser.
+
+This project uses:
+
+- React
+- Vite
+- Recharts
+- Lucide icons
+
+The frontend has:
+
+- a landing section
+- a demo button
+- a ticket text box
+- a Route Ticket button
+- a Change Prompt button
+- prediction output
+- confidence scores
+- charts
+
+The frontend lets users test the model by typing or selecting sample ticket text.
+
+
+11. How Does A Prediction Work?
+
+Here is the flow:
+
+1. User types a ticket.
+
+Example:
+
+"VPN keeps disconnecting every few minutes when I work from home."
+
+2. User clicks Route Ticket.
+
+3. The frontend sends the ticket text to the backend.
+
+4. The backend cleans the text.
+
+5. The model predicts:
+
+- category
+- subcategory
+- priority
+
+6. The app maps the prediction to a support group.
+
+Example:
+
+Issue Type: VPN
+Support Group: Network Operations
+
+7. The backend returns the result to the frontend.
+
+8. The frontend displays the prediction and confidence scores.
+
+
+12. Why Is There A Support Group Mapping?
+
+The machine learning model predicts labels like category and subcategory.
+
+But a real Helpdesk team needs a destination group.
+
+So the project maps model labels to real IT groups.
+
+Example:
+
+VPN -> Network Operations
+Password Reset -> Account Access and Identity
+Laptop -> Endpoint Support
+Suspicious Login -> Security Operations
+Software License -> IT Procurement
+
+This makes the project feel more like a real business system instead of only a machine learning notebook.
+
+
+13. What Makes This Project Portfolio-Ready?
+
+This project is stronger than a basic machine learning project because it includes:
+
+- data preprocessing
+- model training
+- model benchmarking
+- confidence scores
+- human review logic
+- FastAPI backend
+- React frontend dashboard
+- charts and analytics
+- Docker deployment
+- model artifact handling
+- documentation
+
+It shows both data science and software engineering.
+
+
+14. How Is It Hosted?
+
+The project is set up as one Docker web service.
+
+This means one hosted app serves both:
+
+- the React website
+- the FastAPI backend
+
+The app is deployed on Render as a Docker Web Service.
+
+The frontend is available at:
+
+/
+
+The API is available at:
+
+/predict
+/analytics
+/health
+/docs
+
+
+15. What Is Docker?
+
+Docker packages the application and its dependencies into one container.
+
+A container is like a box that contains everything needed to run the app.
+
+This project needs Docker because it has:
+
+- Python backend
+- React frontend
+- machine learning libraries
+- model files
+- deployment configuration
+
+Docker helps Render run the project consistently.
+
+
+16. What Are Model Artifacts?
+
+Model artifacts are saved files from training.
+
+They allow the app to make predictions without training again.
+
+Examples:
+
+- category_model.joblib
+- subcategory_model.joblib
+- priority_model.joblib
+- label_encoders.joblib
+- embedding_model_name.txt
+
+These files are stored in a zip called:
+
+model_artifacts_small.zip
+
+Render downloads this zip using the MODEL_ARTIFACT_URL environment variable.
+
+
+17. What Is An Environment Variable?
+
+An environment variable is a setting used by the app.
+
+Instead of hardcoding private or deployment-specific values in code, we set them in Render.
+
+Important environment variables:
+
+MODEL_ARTIFACT_URL
+
+This tells Render where to download the model files.
+
+MODEL_BACKEND=xgboost
+
+This tells the app to use the lightweight model backend.
+
+
+18. How To Explain This Project In An Interview
+
+Short explanation:
+
+"I built an NLP-powered IT ticket routing system. It reads free-text Helpdesk tickets and predicts the correct IT support group, issue type, and priority. I trained and compared multiple models, added confidence-based human review logic, built a FastAPI backend, created a React dashboard, and deployed it as a Docker service."
+
+Longer explanation:
+
+"The problem is that Helpdesk teams receive many support tickets and have to manually route each one to the right IT group. My project automates that first-pass triage using NLP. The model reads ticket text, predicts category, subcategory, and priority, then maps those predictions to real support groups like Network Operations, Account Access and Identity, Endpoint Support, and Security Operations. I also added confidence scores so low-confidence tickets can be reviewed by humans instead of being blindly routed. The project includes model training, benchmarking, API inference, a dashboard, Docker deployment, and documentation."
+
+
+19. Example Demo
+
+Input:
+
+"Cannot log in after password reset and MFA keeps failing."
+
+Possible output:
+
+Support Group: Account Access and Identity
+Issue Type: MFA
+Priority: Medium
+Routing Decision: Auto-route to Account Access and Identity
+
+Input:
+
+"VPN keeps disconnecting every few minutes when I work from home."
+
+Possible output:
+
+Support Group: Network Operations
+Issue Type: VPN
+Priority: Medium
+Routing Decision: Auto-route to Network Operations
+
+
+20. Main Takeaway
+
+This project is about improving Helpdesk efficiency.
+
+Instead of humans manually reading and sorting every ticket, the system uses NLP to suggest the correct IT group.
+
+It does not replace humans completely.
+
+It helps humans by:
+
+- routing clear tickets faster
+- flagging uncertain tickets for review
+- improving consistency
+- reducing manual sorting work
+
+That is what makes the project realistic and useful.

@@ -74,7 +74,7 @@ function App() {
   const priorityData = analytics ? Object.entries(analytics.priority_counts).map(([name, value]) => ({ name, value })) : [];
 
   return (
-    <main className="page">
+    <main id="main-content" className="page">
       <section className="landing">
         <div>
           <p className="eyebrow">HELPDESK ROUTING SYSTEM</p>
@@ -97,7 +97,8 @@ function App() {
         <div className="card triageCard">
           <p className="eyebrow">REAL-TIME TRIAGE</p>
           <h2>Submit a Helpdesk ticket</h2>
-          <textarea value={ticketText} onChange={(e) => setTicketText(e.target.value)} />
+          <label className="fieldLabel" htmlFor="ticketText">Ticket text</label>
+          <textarea id="ticketText" value={ticketText} onChange={(e) => setTicketText(e.target.value)} />
           <div className="buttonRow">
             <button onClick={classifyTicket} disabled={loading}>{loading ? 'Routing...' : 'Route Ticket'}</button>
             <button className="secondaryButton" onClick={changePrompt} disabled={loading}>Change Prompt</button>

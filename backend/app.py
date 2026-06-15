@@ -68,6 +68,11 @@ def health():
         "model_backend": MODEL_BACKEND,
     }
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(FRONTEND_DIST / "favicon.svg") if (FRONTEND_DIST / "favicon.svg").exists() else JSONResponse(status_code=204, content=None)
+
 @app.post("/predict", response_model=PredictionResponse)
 def predict_ticket(payload: TicketRequest):
     try:
