@@ -7,8 +7,6 @@ import zipfile
 
 import joblib
 import numpy as np
-import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from preprocessing import clean_text
 
@@ -16,6 +14,7 @@ from preprocessing import clean_text
 TARGETS = ["category", "subcategory", "priority"]
 CATEGORY_AUTO_ROUTE_THRESHOLD = 0.70
 SUBCATEGORY_SUGGESTION_THRESHOLD = 0.50
+MODEL_BACKEND = os.getenv("MODEL_BACKEND", "auto").strip().lower()
 SUPPORT_GROUP_BY_CATEGORY = {
     "Access": "Account Access and Identity",
     "Administrative Rights": "Account Access and Identity",
@@ -126,6 +125,10 @@ def _has_local_artifacts(root: Path) -> bool:
             "embedding_model_name.txt",
         ]
     )
+    if MODEL_BACKEND == "xgboost":
+        return has_xgboost
+    if MODEL_BACKEND == "transformer":
+        return has_transformers
     return has_transformers or has_xgboost
 
 
@@ -148,6 +151,8 @@ def _ensure_remote_artifacts(root: Path) -> None:
 
 
 def _load_transformer_artifacts(root: Path) -> dict | None:
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
     transformer_dir = root / "transformer_models"
     if not transformer_dir.exists():
         return None
@@ -189,6 +194,13 @@ def _load_xgboost_artifacts(root: Path) -> dict:
 
 def load_artifacts(root: Path) -> dict:
     _ensure_remote_artifacts(root)
+    if MODEL_BACKEND == "xgboost":
+        return _load_xgboost_artifacts(root)
+    if MODEL_BACKEND == "transformer":
+        artifacts = _load_transformer_artifacts(root)
+        if artifacts is None:
+            raise RuntimeError("Transformer artifacts not found. Check MODEL_ARTIFACT_URL or use MODEL_BACKEND=xgboost.")
+        return artifacts
     return _load_transformer_artifacts(root) or _load_xgboost_artifacts(root)
 
 
@@ -197,6 +209,8 @@ def predict_with_artifacts(artifacts: dict, ticket_text: str) -> dict:
     response = {"ticket_text": ticket_text, "model_type": artifacts["type"]}
 
     if artifacts["type"] == "transformer":
+        import torch
+
         for target in TARGETS:
             tokenizer = artifacts["tokenizers"][target]
             model = artifacts["models"][target]

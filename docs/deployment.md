@@ -10,23 +10,22 @@ Recommended host: Render Docker Web Service.
 
 ## 1. Create Model Artifact Zip
 
-The trained model folders are ignored by git because they are large. Create one zip containing the runtime artifacts:
+The trained model folders are ignored by git because they are large. For Render, use the smaller deployment artifact so the service does not exceed memory limits:
 
 ```bash
-zip -r model_artifacts.zip transformer_models models \
-  -x "models/final_artifacts/*" "models/.DS_Store" "transformer_models/**/.DS_Store"
+zip -r model_artifacts_small.zip models \
+  -x "models/final_artifacts/*" "models/.DS_Store"
 ```
 
-Upload `model_artifacts.zip` somewhere the deployed app can download it, such as a GitHub Release asset or cloud storage file URL.
+Upload `model_artifacts_small.zip` somewhere the deployed app can download it, such as a GitHub Release asset or cloud storage file URL.
 
-The zip should extract into the project root with one or both folders:
+The zip should extract into the project root with this folder:
 
 ```text
-transformer_models/
 models/
 ```
 
-The backend uses `transformer_models/` first. If those artifacts are missing, it falls back to `models/`.
+This uses the XGBoost/SentenceTransformer fallback artifacts instead of the much larger DistilBERT transformer artifacts.
 
 ## 2. Deploy On Render
 
@@ -53,7 +52,8 @@ The Dockerfile:
 Set this in Render:
 
 ```text
-MODEL_ARTIFACT_URL=https://your-download-url/model_artifacts.zip
+MODEL_ARTIFACT_URL=https://your-download-url/model_artifacts_small.zip
+MODEL_BACKEND=xgboost
 ```
 
 Optional:
@@ -79,11 +79,12 @@ https://your-render-app.onrender.com/docs
 Expected `/health` response:
 
 ```json
-{"status":"ok"}
+{"status":"ok","frontend_dist":true,"model_backend":"xgboost"}
 ```
 
 ## Important Notes
 
 - Free Render instances may be slow to start.
-- Transformer artifacts are large. If startup or disk limits are a problem, upload only the smaller `models/` folder and let the app use the XGBoost fallback.
+- Do not use the full 723 MB transformer artifact zip on a small Render instance. It can exceed memory limits when the service loads three DistilBERT models.
+- Use `MODEL_BACKEND=xgboost` with `model_artifacts_small.zip` for the hosted portfolio demo.
 - Do not commit `models/` or `transformer_models/` directly to git unless you intentionally use Git LFS.

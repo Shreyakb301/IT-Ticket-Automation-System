@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from inference import load_artifacts as load_model_artifacts, predict_with_artifacts
+from inference import MODEL_BACKEND
 from preprocessing import normalize_label
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +65,7 @@ def health():
     return {
         "status": "ok",
         "frontend_dist": FRONTEND_DIST.exists(),
+        "model_backend": MODEL_BACKEND,
     }
 
 @app.post("/predict", response_model=PredictionResponse)
