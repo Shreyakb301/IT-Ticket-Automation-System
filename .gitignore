@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.artifact_cache/
+model_artifacts*.zip
 models/
 transformer_models/
 reports/*.png

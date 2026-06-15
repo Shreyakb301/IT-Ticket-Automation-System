@@ -58,10 +58,16 @@ class TicketDataset(Dataset):
 
 
 def select_target_series(df: pd.DataFrame, target: str) -> pd.Series:
-    if TARGET_LABEL_SOURCE == "clean" and target == "category" and "true_category_hidden" in df.columns:
-        return df["true_category_hidden"]
-    if TARGET_LABEL_SOURCE == "clean" and target == "subcategory" and "true_subcategory_hidden" in df.columns:
-        return df["true_subcategory_hidden"]
+    if TARGET_LABEL_SOURCE == "clean" and target == "category":
+        if "true_category_hidden" in df.columns:
+            return df["true_category_hidden"]
+        if "true_category" in df.columns:
+            return df["true_category"]
+    if TARGET_LABEL_SOURCE == "clean" and target == "subcategory":
+        if "true_subcategory_hidden" in df.columns:
+            return df["true_subcategory_hidden"]
+        if "true_subcategory" in df.columns:
+            return df["true_subcategory"]
     return df[target]
 
 

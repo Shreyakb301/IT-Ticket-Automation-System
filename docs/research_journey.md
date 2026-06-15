@@ -1,23 +1,23 @@
-# IT Ticket Automated Classification System: Research Journey and Final Solution
+# IT Ticket Routing Automation System: Research Journey and Final Solution
 
-This document explains the project as a complete research and engineering journey: starting from the business problem, comparing NLP approaches, reviewing relevant research, designing the dataset and pipeline, and ending with one concrete implementation recommendation.
+This document explains the project as a complete research and engineering journey: starting from the Helpdesk routing problem, comparing NLP approaches, reviewing relevant research, designing the dataset and pipeline, and ending with one concrete implementation recommendation.
 
 ## 1. Problem Research
 
-### What IT Ticket Classification Means
+### What IT Ticket Routing Means
 
-IT ticket classification is the process of reading a free-text support request and predicting structured fields such as:
+IT ticket routing is the process of reading a free-text support request and predicting the structured fields needed to send the ticket to the correct IT group:
 
-- Category: Network, Software, Hardware, Security, Access, Cloud, Database, Printer, Mobile Device.
-- Subcategory: VPN, WiFi, Outlook, MFA, PostgreSQL, Printer Queue, iPhone, Laptop.
+- Support group: Account Access and Identity, Network Operations, Endpoint Support, Software and Business Apps, Storage and Collaboration, IT Procurement, HR Systems Support, Security Operations.
+- Model category: Network, Software, Hardware, Security, Access, Cloud, Database, Printer, Mobile Device.
+- Issue type: VPN, WiFi, Outlook, MFA, PostgreSQL, Printer Queue, iPhone, Laptop.
 - Priority: Low, Medium, High, Critical.
-- Assigned team: Network Support, Endpoint Support, Security Operations, Cloud Operations.
 
-In a real service desk, this classification decides who receives the ticket, how quickly it must be handled, and what workflow starts next.
+In a real service desk, this routing decision determines who receives the ticket, how quickly it must be handled, and what workflow starts next.
 
 ### Why Companies Care
 
-Manual triage does not scale well. A human agent has to read every ticket, infer the issue, assign a category, decide priority, and route it to the right queue. When ticket volume grows, manual triage creates delay, inconsistent labeling, and misrouting.
+Manual Helpdesk triage does not scale well. A human agent has to read every ticket, infer the issue, assign a category, decide priority, and route it to the right queue or support group. When ticket volume grows, manual triage creates delay, inconsistent labeling, and misrouting.
 
 Automated classification improves:
 
@@ -31,7 +31,7 @@ Automated classification improves:
 
 ### Where It Is Used
 
-Ticket classification is used in:
+Ticket routing and classification are used in:
 
 - Enterprise IT support.
 - Managed service providers.
@@ -61,7 +61,7 @@ flowchart LR
   B --> C["Classification and enrichment"]
   C --> D["Priority/SLA decision"]
   D --> E["Routing rules"]
-  E --> F["Assigned team queue"]
+  E --> F["Assigned support group queue"]
   F --> G["Agent response or automation"]
 ```
 
@@ -108,7 +108,7 @@ For this project, a synthetic dataset is acceptable because the goal is a portfo
 
 ### Current Dataset
 
-The project now uses `data/tickets.csv`, a 20,000-row noisy/random synthetic IT helpdesk dataset. This version is intentionally harder than a simple keyword-generated dataset because category keywords are less direct, tickets can mention multiple issue types, and some labels are intentionally noisy.
+The project now uses `data/tickets.csv`, a 30,000-row noisy synthetic enterprise service-desk dataset. This version is intentionally harder than a simple keyword-generated dataset because category keywords are less direct, tickets can mention multiple issue types, and about 7% of the category/subcategory labels are intentionally noisy.
 
 Key fields:
 
@@ -117,21 +117,44 @@ Key fields:
 - `ticket_text`
 - `category`
 - `subcategory`
-- `true_category_hidden`
-- `true_subcategory_hidden`
+- `true_category`
+- `true_subcategory`
 - `priority`
 - `department`
-- `user_role`
+- `employee_role`
 - `channel`
 - `status`
-- `impact`
-- `response_time_hours`
-- `resolution_time_hours`
+- `sentiment`
+- `resolution_hours`
 - `label_quality`
 
 Training uses only `ticket_text` as the NLP input and the visible `category`, `subcategory`, and `priority` labels as targets. The hidden true-label columns exist only to audit synthetic label noise and should not be used for normal training, because that would create evaluation leakage.
 
 For experimentation, the training pipeline can also use the hidden clean category/subcategory labels as target labels with `TARGET_LABEL_SOURCE=clean`. This does not leak features into the model because the input is still only `ticket_text`; it simply changes the supervised target from intentionally noisy labels to the synthetic ground truth. This is useful for showing the gap between noisy-label performance and clean-label performance.
+
+In the deployed product framing, the category prediction becomes the main routing signal. The inference layer maps model categories into support groups, with issue-type overrides for identity and security workflows:
+
+| Model category | Destination support group |
+| --- | --- |
+| Access, Administrative Rights | Account Access and Identity |
+| Hardware | Endpoint Support |
+| HR Support | HR Systems Support |
+| Internal Project, Software | Software and Business Apps |
+| Network | Network Operations |
+| Purchase | IT Procurement |
+| Security | Security Operations |
+| Storage | Storage and Collaboration |
+
+| Issue-type override | Destination support group |
+| --- | --- |
+| Account Lockout, MFA, Password Reset, Permissions | Account Access and Identity |
+| Account Compromise, Phishing | Security Operations |
+| VPN Access, VPN Connectivity, WiFi, DNS, Ethernet, Slow Internet | Network Operations |
+| OneDrive Full, SharePoint Site, Shared Drive Access, Quota Increase | Storage and Collaboration |
+| Laptop, Monitor, Docking Station, Keyboard/Mouse, Headset, Webcam | Endpoint Support |
+| Laptop Request, Monitor Request, Equipment Procurement, Vendor Quote | IT Procurement |
+| Office Apps, Teams, Adobe, ERP, CRM, Browser, Zoom | Software and Business Apps |
+| Benefits, Payroll, Onboarding, Offboarding, Timesheet | HR Systems Support |
 
 ## 4. NLP Pipeline Research
 
@@ -382,14 +405,14 @@ Not first priority:
 
 ### Winning Solution
 
-Use **fine-tuned DistilBERT for category/subcategory classification**, retain **TF-IDF + LinearSVC as a strong lightweight baseline**, and keep the **FastAPI + React dashboard architecture**.
+Use **fine-tuned DistilBERT for support-group routing and issue-type prediction**, retain **TF-IDF + LinearSVC as a strong lightweight baseline**, and keep the **FastAPI + React dashboard architecture**.
 
 ### Why It Wins
 
 It provides the best measured performance for this project:
 
-- Category accuracy reached 0.8135 with weighted F1 of 0.8245.
-- Subcategory accuracy reached 0.7682 with weighted F1 of 0.7977.
+- Support-group routing accuracy reached 0.8135 with weighted F1 of 0.8245.
+- Issue-type accuracy reached 0.7682 with weighted F1 of 0.7977.
 - Works well with messy short text.
 - Demonstrates a serious model comparison workflow instead of a single tutorial model.
 - Still remains practical because DistilBERT fine-tuning completed in Colab GPU.
@@ -400,7 +423,7 @@ Priority prediction remains a weak target. The best observed priority accuracy w
 
 - Naive Bayes: too simple for a resume-grade project.
 - Logistic Regression + TF-IDF: strong baseline, but weaker than LinearSVC and fine-tuned DistilBERT.
-- LinearSVC + TF-IDF: strong lightweight baseline, but slightly behind DistilBERT on category/subcategory.
+- LinearSVC + TF-IDF: strong lightweight baseline, but slightly behind DistilBERT on support-group routing and issue-type prediction.
 - Random Forest: not a good fit for sparse text.
 - LSTM/GRU/CNN: unnecessary complexity for weaker practical payoff.
 - MiniLM + XGBoost: useful and deployable, but underperformed TF-IDF and DistilBERT on this dataset.

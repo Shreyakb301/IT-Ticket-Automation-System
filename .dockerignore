@@ -1,0 +1,13 @@
+.artifact_cache/
+.git/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+models/
+transformer_models/
+reports/
+frontend/dist/
+frontend/node_modules/
+notebooks/

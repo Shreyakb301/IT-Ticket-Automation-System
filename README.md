@@ -1,12 +1,12 @@
-# IT Ticket Automated Classification System
+# IT Ticket Routing Automation System
 
-A resume-ready NLP project that classifies enterprise IT helpdesk tickets into:
+A resume-ready NLP project that helps Helpdesk teams route incoming enterprise service-desk tickets to the right support group. The system reads free-text tickets and predicts:
 
-- **Category** — Network, Software, Hardware, Security, Access, Database, Printer, Mobile Device, etc.
-- **Subcategory** — VPN, Outlook, Laptop, MFA, PostgreSQL, Printer Queue, iPhone, etc.
+- **Support group** — Account Access and Identity, Network Operations, Endpoint Support, Software and Business Apps, Storage and Collaboration, IT Procurement, HR Systems Support, Security Operations.
+- **Issue type** — VPN, Outlook, Laptop, MFA, PostgreSQL, Printer Queue, iPhone, etc.
 - **Priority** — Low, Medium, High, Critical
 
-The system uses **Sentence Transformers (`all-MiniLM-L6-v2`)** to convert cleaned ticket text into semantic embeddings and **XGBoost** classifiers for prediction. It includes a FastAPI backend and a React dashboard.
+The trained models still learn high-level `category` and detailed `subcategory` labels internally, then the inference layer maps the predicted category to an operational support group. The system includes a FastAPI backend and a React dashboard for confidence-aware routing.
 
 ## Project Architecture
 
@@ -17,11 +17,11 @@ Text Cleaning
    ↓
 Label Normalization
    ↓
-Sentence Transformer Embedding, 384 dimensions
-   ↓
-XGBoost Models
+NLP Model Layer
    ↓
 Category + Subcategory + Priority + Confidence
+   ↓
+Support Group Routing Decision
    ↓
 FastAPI + React Dashboard
 ```
@@ -65,6 +65,12 @@ For a portfolio-ready case study, demo script, architecture summary, and resume 
 docs/portfolio_case_study.md
 ```
 
+For hosting instructions, environment variables, and model artifact deployment steps, see:
+
+```text
+docs/deployment.md
+```
+
 ## 2. Inspect Dataset
 
 ```bash
@@ -76,21 +82,47 @@ Dataset columns include:
 - `ticket_id`
 - `created_at`
 - `department`
-- `user_role`
+- `employee_role`
 - `channel`
 - `category`
 - `subcategory`
-- `true_category_hidden`
-- `true_subcategory_hidden`
+- `true_category`
+- `true_subcategory`
 - `priority`
 - `ticket_text`
 - `status`
-- `impact`
-- `response_time_hours`
-- `resolution_time_hours`
+- `sentiment`
+- `resolution_hours`
 - `label_quality`
 
-The dataset is intentionally noisy and randomly generated. It includes overlapping issue descriptions, misleading urgency words, typos, vague text, and intentionally noisy category/subcategory labels. The `true_category_hidden` and `true_subcategory_hidden` fields are included only for evaluation and leakage checks; the training code ignores them and trains from `ticket_text` to the visible `category`, `subcategory`, and `priority` labels.
+The dataset is intentionally noisy and randomly generated. It includes overlapping issue descriptions, misleading urgency words, typos, vague text, and intentionally noisy category/subcategory labels. The `true_category` and `true_subcategory` fields are included only for evaluation and leakage checks; the training code ignores them by default and trains from `ticket_text` to the visible `category`, `subcategory`, and `priority` labels.
+
+For product usage, `category` is treated as the model's main routing signal and is mapped to the destination Helpdesk support group. Identity and security issue types can override the broad category when needed:
+
+| Model category | Routed support group |
+| --- | --- |
+| Access | Account Access and Identity |
+| Administrative Rights | Account Access and Identity |
+| Hardware | Endpoint Support |
+| HR Support | HR Systems Support |
+| Internal Project, Software | Software and Business Apps |
+| Network | Network Operations |
+| Purchase | IT Procurement |
+| Security | Security Operations |
+| Storage | Storage and Collaboration |
+
+| Issue-type override | Routed support group |
+| --- | --- |
+| Account Lockout, MFA, Password Reset, Permissions | Account Access and Identity |
+| Account Compromise, Phishing | Security Operations |
+| VPN Access, VPN Connectivity, WiFi, DNS, Ethernet, Slow Internet | Network Operations |
+| OneDrive Full, SharePoint Site, Shared Drive Access, Quota Increase | Storage and Collaboration |
+| Laptop, Monitor, Docking Station, Keyboard/Mouse, Headset, Webcam | Endpoint Support |
+| Laptop Request, Monitor Request, Equipment Procurement, Vendor Quote | IT Procurement |
+| Office Apps, Teams, Adobe, ERP, CRM, Browser, Zoom | Software and Business Apps |
+| Benefits, Payroll, Onboarding, Offboarding, Timesheet | HR Systems Support |
+
+> After replacing the dataset, retrain the models before using predictions as final results. Existing local model artifacts may still reflect the previous dataset.
 
 ## 3. Train Models
 
@@ -163,7 +195,7 @@ Model comparison highlights:
 | MiniLM + tuned XGBoost, clean category/subcategory labels | 0.6660 | 0.6308 | 0.4173 |
 | Fine-tuned DistilBERT | 0.8135 | 0.7682 | 0.4470 |
 
-The final recommendation is to use fine-tuned DistilBERT for category and subcategory prediction. Priority prediction remains experimental because the ticket text alone does not contain enough reliable urgency signal; in production, priority should combine model output with metadata such as impact, requester role, affected users, SLA, and service criticality.
+The final recommendation is to use fine-tuned DistilBERT for support-group routing and issue-type prediction. Priority prediction remains experimental because the ticket text alone does not contain enough reliable urgency signal; in production, priority should combine model output with metadata such as impact, requester role, affected users, SLA, and service criticality.
 
 This creates:
 
@@ -188,6 +220,10 @@ Example output:
 ```python
 {
   'ticket_text': 'My laptop cannot connect to the office WiFi',
+  'support_group': 'Network Operations',
+  'support_group_confidence': 0.94,
+  'issue_type': 'WiFi',
+  'issue_type_confidence': 0.91,
   'category': 'Network',
   'category_confidence': 0.94,
   'subcategory': 'WiFi',
@@ -228,6 +264,10 @@ Response:
 ```json
 {
   "ticket_text": "Outlook crashes when opening large attachments",
+  "support_group": "Software Support",
+  "support_group_confidence": 0.96,
+  "issue_type": "Outlook",
+  "issue_type_confidence": 0.94,
   "category": "Software",
   "subcategory": "Outlook",
   "priority": "Medium",
@@ -237,7 +277,7 @@ Response:
 }
 ```
 
-## 6. Run Frontend
+## 6. Run Frontend Locally
 
 ```bash
 cd frontend
@@ -251,12 +291,29 @@ Open:
 http://localhost:5173
 ```
 
+## 7. Single-Service Docker Deployment
+
+For hosting, this project is configured as one Docker service. FastAPI serves both the React dashboard and the API.
+
+```bash
+docker build -t it-ticket-routing .
+docker run -p 8000:8000 --env-file .env it-ticket-routing
+```
+
+Open:
+
+```text
+http://localhost:8000
+```
+
+For Render deployment details, see `docs/deployment.md`.
+
 ## Dashboard
 
 The project includes a React dashboard with:
 
 - Real-time ticket text input.
-- Category, subcategory, and priority predictions.
+- Recommended support group, issue type, and priority predictions.
 - Confidence scores for every prediction.
 - Auto-route vs human-review routing decision.
 - Dataset analytics and distribution charts.
@@ -264,21 +321,21 @@ The project includes a React dashboard with:
 The API marks low-confidence predictions for review:
 
 ```text
-category_confidence >= 0.70 -> auto-route
-category_confidence < 0.70  -> human review
-subcategory_confidence < 0.50 -> suggestion only
+support_group_confidence >= 0.70 -> auto-route to support group
+support_group_confidence < 0.70  -> human review
+issue_type_confidence < 0.50     -> issue type is a suggestion only
 ```
 
 ## Resume Bullets
 
-**IT Ticket Automated Classification System**
+**IT Ticket Routing Automation System**
 
-- Built an NLP-based ticket triage system that predicts category, subcategory, and priority for IT helpdesk incidents using TF-IDF baselines, Sentence Transformers, XGBoost, and fine-tuned DistilBERT.
+- Built an NLP-based Helpdesk routing system that recommends the right IT support group, issue type, and priority for incoming support tickets using TF-IDF baselines, Sentence Transformers, XGBoost, and fine-tuned DistilBERT.
 - Trained multi-class classification models on 20,000 noisy synthetic enterprise support tickets with overlapping issue descriptions, intentionally noisy labels, urgency metadata, and service desk workflow fields.
-- Improved category accuracy to 81.35% and subcategory accuracy to 76.82% with DistilBERT fine-tuning after benchmarking TF-IDF, MiniLM embeddings, and tuned XGBoost.
-- Developed a FastAPI inference service and React dashboard for real-time ticket prediction, confidence scoring, and support analytics.
+- Improved support-group routing accuracy to 81.35% and issue-type accuracy to 76.82% with DistilBERT fine-tuning after benchmarking TF-IDF, MiniLM embeddings, and tuned XGBoost.
+- Developed a FastAPI inference service and React dashboard for real-time ticket routing, confidence scoring, and support analytics.
 - Created an end-to-end ML pipeline covering data preprocessing, semantic embeddings, model training, evaluation, API deployment, and frontend visualization.
 
 ## Suggested GitHub Description
 
-> NLP-powered IT helpdesk ticket classifier using TF-IDF baselines, Sentence Transformers, XGBoost, DistilBERT fine-tuning, FastAPI, and React for automated ticket triage.
+> NLP-powered IT Helpdesk routing system using TF-IDF baselines, Sentence Transformers, XGBoost, DistilBERT fine-tuning, FastAPI, and React to route tickets to the right IT support group.

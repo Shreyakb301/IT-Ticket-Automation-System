@@ -67,10 +67,16 @@ def build_classifier(num_classes: int) -> XGBClassifier:
 
 
 def select_target_series(df: pd.DataFrame, target: str) -> pd.Series:
-    if TARGET_LABEL_SOURCE == "clean" and target == "category" and "true_category_hidden" in df.columns:
-        return df["true_category_hidden"]
-    if TARGET_LABEL_SOURCE == "clean" and target == "subcategory" and "true_subcategory_hidden" in df.columns:
-        return df["true_subcategory_hidden"]
+    if TARGET_LABEL_SOURCE == "clean" and target == "category":
+        if "true_category_hidden" in df.columns:
+            return df["true_category_hidden"]
+        if "true_category" in df.columns:
+            return df["true_category"]
+    if TARGET_LABEL_SOURCE == "clean" and target == "subcategory":
+        if "true_subcategory_hidden" in df.columns:
+            return df["true_subcategory_hidden"]
+        if "true_subcategory" in df.columns:
+            return df["true_subcategory"]
     return df[target]
 
 
@@ -96,7 +102,7 @@ def main() -> None:
         df = df.sample(sample_size, random_state=42).copy()
 
     print(f"Loaded {len(df):,} tickets")
-    if {"true_category_hidden", "true_subcategory_hidden"} & set(df.columns):
+    if {"true_category_hidden", "true_subcategory_hidden", "true_category", "true_subcategory"} & set(df.columns):
         print(f"Target label source: {TARGET_LABEL_SOURCE}")
         if TARGET_LABEL_SOURCE == "clean":
             print("Using hidden clean labels as targets for category/subcategory; ticket_text remains the only model input.")

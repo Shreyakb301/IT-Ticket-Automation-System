@@ -22,11 +22,13 @@ def main():
     if "label_quality" in df.columns:
         print("\nLabel quality:")
         print(df["label_quality"].value_counts())
-    if {"category", "true_category_hidden"}.issubset(df.columns):
-        mismatch = (df["category"] != df["true_category_hidden"]).mean()
+    true_category_col = "true_category_hidden" if "true_category_hidden" in df.columns else "true_category"
+    true_subcategory_col = "true_subcategory_hidden" if "true_subcategory_hidden" in df.columns else "true_subcategory"
+    if {"category", true_category_col}.issubset(df.columns):
+        mismatch = (df["category"] != df[true_category_col]).mean()
         print(f"\nNoisy category label rate: {mismatch:.2%}")
-    if {"subcategory", "true_subcategory_hidden"}.issubset(df.columns):
-        mismatch = (df["subcategory"] != df["true_subcategory_hidden"]).mean()
+    if {"subcategory", true_subcategory_col}.issubset(df.columns):
+        mismatch = (df["subcategory"] != df[true_subcategory_col]).mean()
         print(f"Noisy subcategory label rate: {mismatch:.2%}")
     print("\nSample ticket:")
     columns = [col for col in ["ticket_text", "category", "subcategory", "priority", "label_quality"] if col in df.columns]
